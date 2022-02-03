@@ -12,5 +12,5 @@ reporters-db==2.0.3
 requests==2.24.0
 scikit-learn==0.23.1
 scipy==1.5.1
-Unidecode==1.1.1
+Unidecode==1.3.2
 us==2.0.2
