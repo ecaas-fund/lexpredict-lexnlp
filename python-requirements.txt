@@ -1,5 +1,5 @@
 bs4==0.0.1
-dateparser==0.7.2
+dateparser==0.7.6
 gensim==3.8.3
 https://github.com/LexPredict/datefinder/archive/0.6.2.1.zip
 joblib==0.14.0
