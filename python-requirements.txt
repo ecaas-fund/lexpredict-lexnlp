@@ -5,7 +5,7 @@ https://github.com/LexPredict/datefinder/archive/0.6.2.1.zip
 joblib==0.14.0
 nltk==3.5
 num2words==0.5.10
-pandas==1.1.3
+pandas==1.4.0
 pycountry==20.7.3
 regex==2020.11.13
 reporters-db==2.0.3
