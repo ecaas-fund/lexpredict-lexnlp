@@ -1,9 +1,10 @@
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
+
 
 import datetime
 from unittest import TestCase
@@ -136,7 +137,7 @@ class TestDatesPlain(TestCase):
     def test_should_be_fixed(self):
         text = """
         This Amendment to the Employment Agreement (the "Amendment") is made as of
-        the 20th day of May, 2003 between Premcor Inc. (the "Company") and [Executive's
+        the 20th day of May, 2003 between Cromcor Inc. (the "Company") and [Executive's
         Name - See Schedule A attached hereto] (the "Executive").
         """
         dates = list(get_dates_list(text, strict=True))
@@ -163,6 +164,14 @@ class TestDatesPlain(TestCase):
         self.assertEqual(1, len(dates))
         self.assertEqual(12, dates[0].month)
 
+    def test_date_with_abbreviation(self):
+        text = "'“Obligation No. 1” means Direct Note Obligation No. 1 dated October 27, 2011, " \
+               "issued to the Authority under the First Supplemental Master Indenture to secure " \
+               "the Series 2000 COPs.'"
+        dates = get_dates_list(text)
+        self.assertEqual(1, len(dates))
+        self.assertEqual(datetime.date(2011, 10, 27), dates[0])
+
     def test_en_dates(self):
         text = "Some date like February 26, 2018 and this one 10-11-2017"
         extracted_dates = list(get_date_annotations(text=text, locale='en'))
@@ -170,13 +179,22 @@ class TestDatesPlain(TestCase):
             ant.text = text[ant.coords[0]: ant.coords[1]]
         extracted_dates.sort(key=lambda k: k.coords[0])
 
-        self.assertEqual((14, 33), extracted_dates[0].coords)
+        self.assertEqual((15, 32), extracted_dates[0].coords)
         self.assertEqual(datetime.date(2018, 2, 26), extracted_dates[0].date)
         self.assertEqual('February 26, 2018', extracted_dates[0].text.strip())
 
-        self.assertEqual((45, 56), extracted_dates[1].coords)
+        self.assertEqual((46, 56), extracted_dates[1].coords)
         self.assertEqual(datetime.date(2017, 10, 11), extracted_dates[1].date)
         self.assertEqual('10-11-2017', extracted_dates[1].text.strip())
+
+    def test_should_marella(self):
+        text = """
+        A broker’s fee for the professional services of 6% is due from the SELLER to Nahum Omeler of Romy Realty, 
+        LLC, the Broker herein, to be divided with Buyer’s broker, Maureen Marella-Devlin of 
+        Century 21 Marella Realty (4% to Romy Realty, LLC and 2% to Century 21 Marella Realty).
+        """
+        dates = list(get_dates_list(text, strict=False))
+        self.assertEqual(0, len(dates))
 
     def test_file_samples(self):
         tester = TypedAnnotationsTester()

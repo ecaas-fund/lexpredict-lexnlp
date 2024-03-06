@@ -7,10 +7,11 @@ Unit tests for Dates.
 
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
+
 
 import datetime
 from unittest import TestCase
@@ -21,12 +22,19 @@ import pytest
 
 from lexnlp.extract.all_locales.languages import Locale
 from lexnlp.extract.common.annotations.date_annotation import DateAnnotation
-from lexnlp.extract.de.dates import get_date_list, get_date_annotations
+from lexnlp.extract.de.dates import get_date_list, get_date_annotations, parser
 from lexnlp.extract.de.dates_de_classifier import train_default_model
 from lexnlp.tests.typed_annotations_tests import TypedAnnotationsTester
 
 
 class TestDeDatesPlain(TestCase):
+    def test_de_general_check(self):
+        self.assertTrue(parser.passed_general_check('der vierte Juli', datetime.date(2021, 8, 4)))
+        self.assertFalse(parser.passed_general_check('der wierte Juli', datetime.date(2021, 8, 4)))
+        self.assertFalse(parser.passed_general_check('der vierte Guli', datetime.date(2021, 8, 4)))
+
+        self.assertFalse(parser.passed_general_check('21/2011', datetime.date(2011, 1, 21)))
+        self.assertTrue(parser.passed_general_check('11/2011', datetime.date(2011, 11, 1)))
 
     def test_dates(self):
         text = """
@@ -73,7 +81,7 @@ class TestDeDatesPlain(TestCase):
                 Stand:        Neugefasst durch Bek. v. 16.5.2002 I 1778;
                 zuletzt geändert durch Art. 39 G v. 29.3.2017 I 626"""
 
-        extracted_dates = list(get_date_annotations(text=text, locale='de'))
+        extracted_dates = list(get_date_annotations(text=text, locale=Locale('de')))
         extracted_dates.sort(key=lambda a: a.coords[0])
         for d in extracted_dates:
             d.text = text[d.coords[0]: d.coords[1]].strip()
@@ -92,6 +100,12 @@ class TestDeDatesPlain(TestCase):
             self.assertEqual((exp[0], exp[1]), act.coords)
             self.assertEqual(exp[2], act.date)
 
+    def test_numeral(self):
+        text = 'der vierte Juli'
+        dates = list(get_date_annotations(text))
+        # TODO: get a better date parser that can convert numerals to numbers
+        self.assertEqual(0, len(dates))
+
     def test_negative(self):
         text = '''Leasing ohne Anzahlung: Monatliche Rate 300€, Laufzeit 36 Monaten, Gesamtkosten
         10.800€
@@ -105,6 +119,41 @@ class TestDeDatesPlain(TestCase):
 
         self.assertEqual(0, len(dates))
 
+    def test_negative_jahr(self):
+        text = '''Der Vertrag beginnt mit dem Moment zu laufen, in dem der Vermieter / Mieter seine 
+        Unterschriften darauf gemacht hat. Wenn die Mietdauer mehr als 1 Jahr beträgt, ist eine staatliche 
+        Registrierung des Vertrags erforderlich.'''
+        dates = list(get_date_annotations(text))
+        for d in dates:
+            d.text = text[d.coords[0]: d.coords[1]]
+        self.assertEqual(0, len(dates))
+
+    def test_point_inside(self):
+        text = '''- Definitiver Leasing-Entscheid innert 24 Stunden 5. Oktober 2011.'''
+        dates = list(get_date_annotations(text))
+        self.assertEqual(1, len(dates))
+        self.assertEqual(datetime.datetime(2011, 10, 5, 0, 0), dates[0].date)
+
+    def test_point_inside_with_two_dates(self):
+        text = '''zu den Übereinkommen vom 15. Februar 1972 und 29. Dezember 1972 zur'''
+        dates = list(get_date_annotations(text))
+        self.assertEqual(2, len(dates))
+        self.assertEqual(datetime.datetime(1972, 2, 15, 0, 0), dates[0].date)
+        self.assertEqual(datetime.datetime(1972, 12, 29, 0, 0), dates[1].date)
+
+    def test_negative_stunden(self):
+        text = '''- Definitiver Leasing-Entscheid innert 24 Stunden 5.'''
+        dates = list(get_date_annotations(text))
+        for d in dates:
+            d.text = text[d.coords[0]: d.coords[1]]
+        self.assertEqual(0, len(dates))
+
+    def test_written_number(self):
+        # TODO: our De parser presently can't read numerals
+        text = '''am vierzehnten Juli'''
+        dates = list(get_date_annotations(text))
+        self.assertEqual(0, len(dates))
+
     def test_file_samples(self):
         tester = TypedAnnotationsTester()
         tester.test_and_raise_errors(
@@ -113,9 +162,8 @@ class TestDeDatesPlain(TestCase):
             DateAnnotation)
 
     @pytest.mark.serial
-    def debug_train_classifier(self):
-        # this code executes ~9 minutes
-        train_default_model(save=False)
+    def debug_test_train_classifier(self):
+        train_default_model(save=True, verbose=False, check_date_strings=True)
 
 
 def get_dates_ordered(text: str) -> List[DateAnnotation]:

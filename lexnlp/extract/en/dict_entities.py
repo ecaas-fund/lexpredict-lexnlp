@@ -19,10 +19,11 @@
 
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
+
 
 import csv
 import re
@@ -123,13 +124,16 @@ class DictionaryEntry:
         with open(aliases_fn, 'r', encoding='utf8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                entity = entities.get(row['entity_id'])  # type: DictionaryEntry
+                entity: DictionaryEntry = entities.get(row['entity_id'])
                 if entity:
-                    alias = DictionaryEntryAlias(
-                        alias=row['alias'], language=row['locale'],
-                        is_abbreviation=row['type'].startswith('iso') or row['type'] == 'abbreviation')
-                    entity.aliases.append(alias)
-
+                    aliases = row['alias']
+                    for alias in aliases.split(';'):
+                        dictionary_entry_alias = DictionaryEntryAlias(
+                            alias=alias.strip(),
+                            language=row['locale'],
+                            is_abbreviation=row['type'].startswith('iso') or row['type'] == 'abbreviation',
+                        )
+                        entity.aliases.append(dictionary_entry_alias)
         return list(entities.values())
 
     @classmethod
@@ -166,10 +170,11 @@ class DictionaryEntry:
                                  DictionaryEntryAlias('ISO-3166-3', language, True)]
             r.aliases = []
             for a in alias_columns:
-                alias = row.get(a.alias)
-                if not alias or not isinstance(alias, str):
+                aliases = row.get(a.alias)
+                if not aliases or not isinstance(aliases, str):
                     continue
-                r.aliases.append(DictionaryEntryAlias(alias, a.language, a.is_abbreviation))
+                for alias in aliases.split(';'):
+                    r.aliases.append(DictionaryEntryAlias(alias, a.language, a.is_abbreviation))
 
             if extra_columns:
                 r.extra_columns = {}
@@ -419,7 +424,7 @@ def _find_entity_positions(normalized_text: str,
         return block == block_upper
 
     if context is None:
-        context = dict()
+        context = {}
 
     if not entity.aliases:
         return
@@ -571,7 +576,7 @@ def find_dict_entities(text: str,
                                                         simple_tokenization=False)
     normalized_text_lowercase = normalized_text.lower()
 
-    search_context = dict()
+    search_context = {}
     # Search for each DictEntity occurrence adding them into the shared search context.
     # while searching for entities from the dictionary by their attributes / aliases
     # we may

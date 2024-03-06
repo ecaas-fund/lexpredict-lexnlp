@@ -4,20 +4,20 @@ Addresses extraction for English language.
 
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
 
+
 import os
-import pickle
 import re
 from typing import Generator, Tuple, List
 
-from lexnlp.extract.en.preprocessing.span_tokenizer import SpanTokenizer
-
 from lexnlp.extract.en.addresses import address_features
-
+from lexnlp.extract.en.preprocessing.span_tokenizer import SpanTokenizer
+from lexnlp.extract.common.annotations.address_annotation import AddressAnnotation
+from lexnlp.utils.unpickler import renamed_load
 
 NGRAM_CLASSIFIER_FN = os.path.join(os.path.dirname(__file__), 'addresses_clf.pickle')
 
@@ -98,7 +98,7 @@ def align_tokens(tokens, sentence):
 
 def load_classifier():
     with open(NGRAM_CLASSIFIER_FN, 'rb') as f:
-        return pickle.load(f)
+        return renamed_load(f)
 
 
 NGRAM_CLASSIFIER = load_classifier()
@@ -106,8 +106,11 @@ NGRAM_WINDOW_HALF_WIDTH = 10
 NGRAM_WINDOW_STEP = 1
 
 
-def prepare_ngrams_in_text(text: str, window_half_width: int, window_step: int) \
-        -> Generator[Tuple[List[int], List[str], int, int], None, None]:
+def prepare_ngrams_in_text(
+    text: str,
+    window_half_width: int,
+    window_step: int
+) -> Generator[Tuple[List[int], str, int, int], None, None]:
     words2 = []
 
     for word, pos_token, word_start_pos, word_end_pos in TOKENIZER.get_token_spans(text):
@@ -116,11 +119,12 @@ def prepare_ngrams_in_text(text: str, window_half_width: int, window_step: int) 
         words2.append((word, pos_token, word_start_pos, word_end_pos + 1, features))
 
     i = 0
-    while i < len(words2):
-        word, pos_token, word_start_pos, word_end_pos, features = words2[i]
-        features = list()
+    len_words2 = len(words2)
+    while i < len_words2:
+        word, pos_token, word_start_pos, word_end_pos, _ = words2[i]
+        features = []
         for j in range(i - window_half_width, i + window_half_width):
-            if 0 <= j < len(words2):
+            if 0 <= j < len_words2:
                 features.extend(words2[j][4])
             else:
                 features.extend(address_features.ZERO_FEATURES)
@@ -135,6 +139,16 @@ def cleanup(address: str) -> str:
     address = address.strip('?:!.,;-_ \t')
     address = re.sub(r'\s+', ' ', address)
     return address
+
+
+def get_address_annotations(text: str) -> Generator[AddressAnnotation, None, None]:
+    for address, start, end in get_address_spans(text):
+        yield AddressAnnotation(
+            coords=(start, end),
+            name='',
+            locale='en',
+            text=text,
+        )
 
 
 def get_addresses(text: str) -> Generator[str, None, None]:

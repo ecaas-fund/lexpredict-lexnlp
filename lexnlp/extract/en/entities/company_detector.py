@@ -2,13 +2,15 @@
 
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
 
+
 from typing import Dict, List, Generator, Tuple, Optional
 import os
+import copy
 import regex as re
 import nltk
 import string
@@ -16,7 +18,7 @@ import string
 from lexnlp.config.en.company_types import CompanyDescriptor
 from lexnlp.extract.common.annotations.company_annotation import CompanyAnnotation
 from lexnlp.extract.en.entities.company_np_extractor import CompanyNPExtractor
-from lexnlp.extract.en.utils import strip_unicode_punctuation
+from lexnlp.extract.en.utils import strip_unicode_punctuation, replace_upper_words_with_titled
 from lexnlp.extract.en.entities import nltk_re
 from lexnlp.extract.common.entities.entity_banlist import BanListUsage, default_banlist_usage, EntityBanListItem
 from lexnlp.extract.common.annotations.phrase_position_finder import PhrasePositionFinder
@@ -29,6 +31,13 @@ VALID_PUNCTUATION = [",", ".", "&"]
 
 PERSONS_STOP_WORDS = re.compile(
     r'avenue|amendment|agreement|addendum|article|assignment|exhibit', re.IGNORECASE)
+
+MONTH_NAMES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+               'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+MONTH_NAMES_STR = '|'.join([fr'\-{m}\-' for m in MONTH_NAMES])
+PARTY_PREFIX_STR = fr'^\d\d([0-9\.\s\,]*({MONTH_NAMES_STR}|\-)*[0-9\.\s\,]*)+'
+COMPANY_NAME_PREFIX_RE = re.compile(PARTY_PREFIX_STR, re.IGNORECASE)
+COMPANY_NAME_TRIM_RE = re.compile(r'^\s*(?:and|&|of)\s+|\s+(?:and|&|of)\s*$', re.IGNORECASE)
 
 
 class CompanyDetector:
@@ -158,6 +167,8 @@ class CompanyDetector:
         # skip if all text is in uppercase
         if text == text.upper():
             return
+        # replace new lines with spaces
+        text = text.replace('\n', ' ')
         banlist = self.get_company_banlist(banlist_usage)
         valid_punctuation = VALID_PUNCTUATION + ["(", ")"]
         unique_companies: Dict[Tuple[str, str], CompanyAnnotation] = {}
@@ -271,11 +282,13 @@ class CompanyDetector:
         """
         Get names from text.
         """
+        companies = list(self.get_company_annotations(text))
         # Iterate through sentences
         for sentence in get_sentence_list(text):
             # Tag sentence
+            original_sentence = copy.copy(sentence)
+            sentence = replace_upper_words_with_titled(sentence)
             sentence_pos = nltk.pos_tag(get_token_list(sentence))
-            companies = list(self.get_company_annotations(text))
 
             # Iterate through chunks
             persons = []
@@ -302,6 +315,14 @@ class CompanyDetector:
                     else:
                         last_person_pos = None
 
+            # convert persons to persons from original sentence and remove UPPER persons as 1 word
+            persons = [person.upper() 
+                       if person.upper() in original_sentence \
+                          and person.upper() not in persons
+                       else person 
+                       for person in persons 
+                       if not (person.upper() in original_sentence and len(re.findall(r'\w+', person)) < 2)]
+            
             # Cleanup and yield
             for person in persons:
                 # Cleanup
@@ -358,8 +379,9 @@ class CompanyDetector:
                 company_name = nltk_re.FALSE_POS_SUB_RE.sub('', company_name)
                 company_name = company_name.strip(
                     string.punctuation.replace('&', '').replace(')', '') + string.whitespace)
-                company_name = re.sub(r'^\s*(?:and|&|of)\s+|\s+(?:and|&|of)\s*$', '',
-                                      company_name, re.IGNORECASE)
+                company_name = COMPANY_NAME_TRIM_RE.sub('', company_name)
+                # remove company name "prefix": numbers, dates etc
+                company_name = COMPANY_NAME_PREFIX_RE.sub('', company_name)
                 if not company_name:
                     continue
 

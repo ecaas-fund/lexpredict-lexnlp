@@ -27,15 +27,16 @@ Avoids:
 
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
+
 
 # pylint: disable=bare-except
 
 import string
-from decimal import Decimal, DecimalTuple
+from decimal import Decimal, DecimalTuple, InvalidOperation
 from typing import Dict, Generator, Optional, Tuple, Union, List
 
 import nltk
@@ -47,6 +48,8 @@ from lexnlp.extract.common.annotations.amount_annotation import AmountAnnotation
 
 
 # Define small numbers
+
+
 SMALL_NUMBERS: List[int] = [*range(0, 21, 1), *range(30, 100, 10)]
 SMALL_NUMBERS_MAP = {num2words(n): n for n in SMALL_NUMBERS}
 SMALL_NUMBERS_MAP.update({num2words(n, ordinal=True): n for n in SMALL_NUMBERS})
@@ -71,6 +74,7 @@ small_numbers = list(SMALL_NUMBERS_MAP.keys())
 small_numbers.sort(key=len, reverse=True)
 big_numbers = list(MAGNITUDE_MAP.keys())
 big_numbers.sort(key=len, reverse=True)
+
 
 CURRENCY_SYMBOL_MAP = {
     "$": "USD",
@@ -107,17 +111,11 @@ fraction_smb_to_string = {
 
 fraction_symbols = ''.join(fraction_smb_to_value)
 FRACTION_TAIL = rf'\s{{0,2}}[{fraction_symbols}]+'
-FRACTION_TAIL_RE = re.compile(FRACTION_TAIL,
-                              re.IGNORECASE | re.MULTILINE | re.DOTALL | re.VERBOSE)
+FRACTION_TAIL_RE = re.compile(FRACTION_TAIL, re.IGNORECASE | re.MULTILINE | re.DOTALL | re.VERBOSE)
 
-NUM_PTN = r"""
-(?:(?:(?:(?:(?:[\.\d][\d\.,]*\s*|\W|^)
-(?:(?:{written_small_numbers}|{written_big_numbers}
-|hundred(?:th(?:s)?)?|dozen|and|a\s+half|quarters?)[\s-]*)+)
-(?:(?:no|\d{{1,2}})/100)?)|(?<=\W|^)(?:[\.\d][\d\.,'/]*))(?:\W|$))(?:{fraction_tail})*""".format(
-    written_small_numbers='|'.join(small_numbers),
-    written_big_numbers='|'.join(big_numbers),
-    fraction_tail=FRACTION_TAIL)
+NUM_PTN = fr"(?:(?:(?:(?:(?:[\.\d][\d\.,]*\s*|\W|^)(?:(?:{'|'.join(small_numbers)}|{'|'.join(big_numbers)}|hundred" \
+          fr"(?:th(?:s)?)?|dozen|and|a\s+half|quarters?)[\s-]*)+)(?:(?:no|\d{{1,2}})/100)?)|(?<=\W|^)" \
+          fr"(?:[\.\d][\d\.,'/]*))(?:\W|$))(?:{FRACTION_TAIL})*"
 
 NUM_PTN_RE = re.compile(NUM_PTN, re.IGNORECASE | re.MULTILINE | re.DOTALL | re.VERBOSE)
 
@@ -156,8 +154,6 @@ FRACTION_EXTRACT_PTN = r"((?:(?:{writ})|(?:(?:{writ_20_90})[\s-]+(?:{writ_1_9}))
             writ_ord_mix='|'.join([num2words(n, ordinal=True) + 's?' for n in SMALL_NUMBERS[2:]]),
             writ_ord_1_9_mix='|'.join([num2words(n, ordinal=True) + 's?' for n in SMALL_NUMBERS[1:10]]))
 FRACTION_EXTRACT_PTN_RE = re.compile(FRACTION_EXTRACT_PTN, re.S | re.M)
-
-wnl = nltk.stem.WordNetLemmatizer()
 
 # Taken from Su Nam Kim Paper...
 grammar = r"""
@@ -303,27 +299,32 @@ def text2num(
     return Decimal(n + prefix + d)
 
 
-def get_np(text) -> Generator[Tuple[str, str], None, None]:
-    tokens = nltk.word_tokenize(text)
-    pos_tokens = nltk.tag.pos_tag(tokens)
-    chunks = chunker.parse(pos_tokens)
+def get_np(text) -> Generator[str, None, None]:
+    tokens: List[str] = nltk.word_tokenize(text)
+    pos_tokens: nltk.tree.Tree = nltk.tag.pos_tag(tokens)
+    chunks: nltk.tree.Tree = chunker.parse(pos_tokens)
     for subtree in chunks.subtrees(filter=lambda t: t.label() == 'NP'):
-        np = ' '.join([i[0] for i in subtree.leaves()])
-        _np = ' '.join([wnl.lemmatize(i[0]) for i in subtree.leaves()])
-        yield np, _np
+        yield ' '.join(i[0] for i in subtree.leaves())
 
 
 def quantize_by_float_digit(amount: Decimal, float_digits: int) -> Decimal:
     amount_as_tuple: DecimalTuple = amount.as_tuple()
     exponent: int = amount_as_tuple.exponent
     abs_exponent: int = abs(exponent)
-    if abs_exponent == 0:
-        return amount.quantize(Decimal('0.0'))
-    if abs_exponent > float_digits:
-        if any(amount_as_tuple.digits[exponent:]):
-            return amount.quantize(Decimal(f'0.{"0" * float_digits}'))
-        return amount.quantize(Decimal('0.0'))
-    return amount
+    try:
+        if abs_exponent == 0:
+            return amount.quantize(Decimal('0.0'))
+        if abs_exponent > float_digits:
+            if any(amount_as_tuple.digits[exponent:]):
+                return amount.quantize(Decimal(f'0.{"0" * float_digits}'))
+            return amount.quantize(Decimal('0.0'))
+        return amount
+    except InvalidOperation as invalid_operation:
+        # TODO: fix this problem in a better way later
+        # raise InvalidOperation(
+        #     f'{amount=}, {float_digits=}, {getcontext().prec=}'
+        # ) from invalid_operation
+        return amount
 
 
 def get_amounts(
@@ -348,6 +349,30 @@ def get_amounts(
             yield ant.value
 
 
+def get_amount_list(
+    text: str,
+    return_sources: bool = False,
+    extended_sources: bool = True,
+    float_digits: int = 4,
+) -> List[Union[Decimal, Tuple[Decimal, str]]]:
+    """
+    Find possible amount references in the text.
+    :param text: text
+    :param return_sources: return amount AND source text
+    :param extended_sources: return data around amount itself
+    :param float_digits: round float to N digits, don't round if None
+    :return: list of amounts
+    """
+    return list(
+        get_amounts(
+            text=text,
+            return_sources=return_sources,
+            extended_sources=extended_sources,
+            float_digits=float_digits,
+        )
+    )
+
+
 def get_amount_annotations(
     text: str,
     extended_sources: bool = True,
@@ -360,10 +385,10 @@ def get_amount_annotations(
     :param float_digits: round float to N digits, don't round if None
     :return: list of amounts
     """
-    for match in NUM_PTN_RE.finditer(text):
+    for match in NUM_PTN_RE.finditer(text):  # type: re.Match
         found_item = match.group()
         fraction_tail_items = FRACTION_TAIL_RE.finditer(found_item)
-        for fraction_tail in fraction_tail_items:
+        for fraction_tail in fraction_tail_items:  # type: re.Match
             fraction_tail_smb = fraction_tail.group().strip(' ')
             if fraction_tail_smb in fraction_smb_to_string:
                 fraction_ending = fraction_smb_to_string[fraction_tail_smb]
@@ -390,7 +415,7 @@ def get_amount_annotations(
             unit = ''
             next_text = text[match.span()[1]:]
             if next_text:
-                for np, _ in get_np(next_text):
+                for np in get_np(next_text):
                     if next_text.startswith(np):
                         unit = np
                 if unit:
@@ -413,3 +438,24 @@ def get_amount_annotations(
                 value=amount,
                 text=match.group()
             )
+
+
+def get_amount_annotation_list(
+    text: str,
+    extended_sources: bool = True,
+    float_digits: int = 4,
+) -> List[AmountAnnotation]:
+    """
+    Find possible amount references in the text.
+    :param text: text
+    :param extended_sources: return data around amount itself
+    :param float_digits: round float to N digits, don't round if None
+    :return: list of amounts
+    """
+    return list(
+        get_amount_annotations(
+            text=text,
+            extended_sources=extended_sources,
+            float_digits=float_digits,
+        )
+    )

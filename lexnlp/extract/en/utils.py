@@ -3,10 +3,11 @@
 
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
+
 
 import re
 import nltk
@@ -19,6 +20,8 @@ from lexnlp.extract.common.annotations.phrase_position_finder import PhrasePosit
 
 
 # Default punctuation to accept
+
+
 VALID_PUNCTUATION = [".", ",", "'", "-", "&", "(", ")"]
 
 
@@ -33,6 +36,23 @@ def strip_unicode_punctuation(text, valid_punctuation=None):
 
     return "".join(c for c in text if (c in valid_punctuation) or not unicodedata.category(c).startswith("P"))
 
+
+def replace_upper_words_with_titled(text: str):
+    """
+    This method replaces all uppercase words with titled ones.
+    :param text: text to process
+    :return: text with no upper words
+    """
+    titled_upper_words = sorted(
+        [i.title() for i in re.findall(r'[a-zA-Z]+', text) if i.upper() == i],
+        key=len
+    )[::-1]
+    words = re.findall(r'[a-zA-Z]+', text)
+
+    for i in titled_upper_words:
+        text = text.replace(i.upper(), i)
+    return text
+    
 
 default_grammar = r"""
     NBAR:

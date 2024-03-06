@@ -1,9 +1,10 @@
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
+
 
 import copy
 import logging
@@ -11,8 +12,7 @@ import logging
 import dateparser
 import regex as re
 from dateutil import tz, parser
-from typing import Tuple, List, Dict
-
+from typing import Tuple, List, Dict, Optional
 
 from lexnlp.extract.all_locales.languages import Locale
 
@@ -44,6 +44,16 @@ class DateFragment:
         return sum([1 if len(self.captures[m]) > 0 else 0 for m in self.captures])
 
 
+def refine_pattern_start_end(pattern: str) -> str:
+    """
+    The updated Regex pattern doesn't allow alpha characters prepended or appended
+    to the match.
+    :param pattern: monday|tuesday
+    :return: (?<![^\W\d_])monday(?![^\W\d_])|(?<![^\W\d_])tuesday(?![^\W\d_])
+    """
+    return '|'.join([fr'(?<![^\W\d_]){p}(?![^\W\d_])' for p in pattern.split('|')])
+
+
 class DateFinder:
     """
     Locates dates in a text
@@ -52,15 +62,19 @@ class DateFinder:
     DIGITS_MODIFIER_PATTERN = r'\d+st|\d+th|\d+rd|first|second|third|fourth|fifth|sixth|seventh|eighth|nineth|tenth|next|last'
     DIGITS_PATTERN = r'\d{1,4}'
     DAYS_PATTERN = 'monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thur|thurs|fri|sat|sun'
+    DAYS_PATTERN = refine_pattern_start_end(DAYS_PATTERN)
     MONTHS_PATTERN = 'january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec'
+    MONTHS_PATTERN = refine_pattern_start_end(MONTHS_PATTERN)
+
     TIMEZONES_PATTERN = 'ACDT|ACST|ACT|ACWDT|ACWST|ADDT|ADMT|ADT|AEDT|AEST|AFT|AHDT|AHST|AKDT|AKST|AKTST|AKTT|ALMST|ALMT|AMST|AMT|ANAST|ANAT|ANT|APT|AQTST|AQTT|ARST|ART|ASHST|ASHT|AST|AWDT|AWST|AWT|AZOMT|AZOST|AZOT|AZST|AZT|BAKST|BAKT|BDST|BDT|BEAT|BEAUT|BIOT|BMT|BNT|BORT|BOST|BOT|BRST|BRT|BST|BTT|BURT|CANT|CAPT|CAST|CAT|CAWT|CCT|CDDT|CDT|CEDT|CEMT|CEST|CET|CGST|CGT|CHADT|CHAST|CHDT|CHOST|CHOT|CIST|CKHST|CKT|CLST|CLT|CMT|COST|COT|CPT|CST|CUT|CVST|CVT|CWT|CXT|ChST|DACT|DAVT|DDUT|DFT|DMT|DUSST|DUST|EASST|EAST|EAT|ECT|EDDT|EDT|EEDT|EEST|EET|EGST|EGT|EHDT|EMT|EPT|EST|ET|EWT|FET|FFMT|FJST|FJT|FKST|FKT|FMT|FNST|FNT|FORT|FRUST|FRUT|GALT|GAMT|GBGT|GEST|GET|GFT|GHST|GILT|GIT|GMT|GST|GYT|HAA|HAC|HADT|HAE|HAP|HAR|HAST|HAT|HAY|HDT|HKST|HKT|HLV|HMT|HNA|HNC|HNE|HNP|HNR|HNT|HNY|HOVST|HOVT|HST|ICT|IDDT|IDT|IHST|IMT|IOT|IRDT|IRKST|IRKT|IRST|ISST|IST|JAVT|JCST|JDT|JMT|JST|JWST|KART|KDT|KGST|KGT|KIZST|KIZT|KMT|KOST|KRAST|KRAT|KST|KUYST|KUYT|KWAT|LHDT|LHST|LINT|LKT|LMT|LMT|LMT|LMT|LRT|LST|MADMT|MADST|MADT|MAGST|MAGT|MALST|MALT|MART|MAWT|MDDT|MDST|MDT|MEST|MET|MHT|MIST|MIT|MMT|MOST|MOT|MPT|MSD|MSK|MSM|MST|MUST|MUT|MVT|MWT|MYT|NCST|NCT|NDDT|NDT|NEGT|NEST|NET|NFT|NMT|NOVST|NOVT|NPT|NRT|NST|NT|NUT|NWT|NZDT|NZMT|NZST|OMSST|OMST|ORAST|ORAT|PDDT|PDT|PEST|PET|PETST|PETT|PGT|PHOT|PHST|PHT|PKST|PKT|PLMT|PMDT|PMMT|PMST|PMT|PNT|PONT|PPMT|PPT|PST|PT|PWT|PYST|PYT|QMT|QYZST|QYZT|RET|RMT|ROTT|SAKST|SAKT|SAMT|SAST|SBT|SCT|SDMT|SDT|SET|SGT|SHEST|SHET|SJMT|SLT|SMT|SRET|SRT|SST|STAT|SVEST|SVET|SWAT|SYOT|TAHT|TASST|TAST|TBIST|TBIT|TBMT|TFT|THA|TJT|TKT|TLT|TMT|TOST|TOT|TRST|TRT|TSAT|TVT|ULAST|ULAT|URAST|URAT|UTC|UYHST|UYST|UYT|UZST|UZT|VET|VLAST|VLAT|VOLST|VOLT|VOST|VUST|VUT|WARST|WART|WAST|WAT|WDT|WEDT|WEMT|WEST|WET|WFT|WGST|WGT|WIB|WIT|WITA|WMT|WSDT|WSST|WST|WT|XJT|YAKST|YAKT|YAPT|YDDT|YDT|YEKST|YEKST|YEKT|YEKT|YERST|YERT|YPT|YST|YWT|zzz'
     ## explicit north american timezones that get replaced
     NA_TIMEZONES_PATTERN = 'pacific|eastern|mountain|central'
+    NA_TIMEZONES_PATTERN = refine_pattern_start_end(NA_TIMEZONES_PATTERN)
     ALL_TIMEZONES_PATTERN = TIMEZONES_PATTERN + '|' + NA_TIMEZONES_PATTERN
     DELIMITERS_PATTERN = r'[/\:\-\,\.\s\_\+\@]+'
     TIME_PERIOD_PATTERN = r'a\.m\.|am|p\.m\.|pm'
     ## can be in date strings but not recognized by dateutils
-    EXTRA_TOKENS_PATTERN = 'due|by|on|during|standard|daylight|savings|time|date|dated|day|of|to|through|between|until|z|at|t'
+    EXTRA_TOKENS_PATTERN = 'due|by|on|during|standard|daylight|savings|time|date|dated|day|of|from|to|through|between|until|z|at|t'
 
     ## TODO: Get english numbers?
     ## http://www.rexegg.com/regex-trick-numbers-in-english.html
@@ -79,20 +93,16 @@ class DateFinder:
             (?P<minutes>\d{{1,2}})
             (\:(?<seconds>\d{{1,2}}))?
             ([\.\,](?<microseconds>\d{{1,6}}))?
-            \s*
-            (?P<time_periods>{time_periods})?
-            \s*
-            (?P<timezones>{timezones})?
+            (\s*(?P<time_periods>{time_periods}))?
+            (\s*(?P<timezones>{timezones}))?
         )
         |
         ## Captures in format 11 AM (EST)
         ## Note with single digit capture requires time period
         (
             (?P<hours>\d{{1,2}})
-            \s*
-            (?P<time_periods>{time_periods})
-            \s*
-            (?P<timezones>{timezones})*
+            (\s*(?P<time_periods>{time_periods}))
+            (\s*(?P<timezones>{timezones}))*
         )
     )
     """.format(
@@ -114,22 +124,26 @@ class DateFinder:
             |
             (?P<months>{months})
             |
+            ## These abbreviations could be in phrases and make parsing date harder.
+            ## Should be located before delimiters in regular expression pattern
+            (?:\s)(?:[A-Z][a-z]{{1,3}}\.)(\s*[^a-zA-Z\s]+)(?![\w\d])
+            |
             ## Delimiters, ie Tuesday[,] July 18 or 6[/]17[/]2008
             ## as well as blank space
             (?P<delimiters>{delimiters})
             |
             ## These tokens could be in phrases that dateutil does not yet recognize
             ## Some are US Centric
-            (?P<extra_tokens>({extra_tokens})[\s\.$,;]+)
+            (?<![\w\d])(?P<extra_tokens>({extra_tokens}))(?![\w\d])
+
         ## We need at least three items to match for minimal datetime parsing
         ## ie 10pm
         ){{1,1}}
     )
     """
 
-    ALL_GROUPS = ['time', 'digits_modifier', 'digits', 'days',
-                  'months', 'delimiters', 'extra_tokens', 'timezones',
-                  'time_periods', 'hours', 'minutes', 'seconds',
+    ALL_GROUPS = ['time', 'digits_modifier', 'digits', 'days', 'months', 'delimiters',
+                  'extra_tokens', 'timezones', 'time_periods', 'hours', 'minutes', 'seconds',
                   'microseconds']
 
     DATES_PATTERN = DATES_PATTERN.format(
@@ -139,17 +153,20 @@ class DateFinder:
         days=DAYS_PATTERN,
         months=MONTHS_PATTERN,
         delimiters=DELIMITERS_PATTERN,
-        extra_tokens=EXTRA_TOKENS_PATTERN
+        extra_tokens=EXTRA_TOKENS_PATTERN,
     )
 
-    DATE_REGEX = re.compile(DATES_PATTERN, re.IGNORECASE | re.MULTILINE | re.UNICODE | re.DOTALL | re.VERBOSE)
+    DATE_REGEX = re.compile(DATES_PATTERN,
+                            re.IGNORECASE | re.MULTILINE | re.UNICODE | re.DOTALL | re.VERBOSE)
 
-    TIME_REGEX = re.compile(TIME_PATTERN, re.IGNORECASE | re.MULTILINE | re.UNICODE | re.DOTALL | re.VERBOSE)
+    TIME_REGEX = re.compile(TIME_PATTERN,
+                            re.IGNORECASE | re.MULTILINE | re.UNICODE | re.DOTALL | re.VERBOSE)
 
     # split ranges
     RANGE_SPLIT_PATTERN = r'\Wto\W|\Wthrough\W'
 
-    RANGE_SPLIT_REGEX = re.compile(RANGE_SPLIT_PATTERN, re.IGNORECASE | re.MULTILINE | re.UNICODE | re.DOTALL)
+    RANGE_SPLIT_REGEX = re.compile(RANGE_SPLIT_PATTERN,
+                                   re.IGNORECASE | re.MULTILINE | re.UNICODE | re.DOTALL)
 
     ## These tokens can be in original text but dateutil
     ## won't handle them without modification
@@ -185,7 +202,7 @@ class DateFinder:
         for match in self.DATE_REGEX.finditer(text):
             match_str = match.group(0)
             indices = match.span(0)
-            captures = match.capturesdict()
+            captures = {k: v for k, v in match.capturesdict().items() if v}
             for capt_key in captures:
                 captures[capt_key] = [c.strip() for c in captures[capt_key]]
             group = self.get_token_group(captures)
@@ -199,7 +216,7 @@ class DateFinder:
         return items
 
     def merge_tokens(self, tokens: List[Tuple[str, str]]) -> List[DateFragment]:
-        MIN_MATCHES = 3
+        MIN_MATCHES = 2
         fragments: List[DateFragment] = []
         frag = DateFragment()
 
@@ -217,7 +234,8 @@ class DateFinder:
                 start_char = total_chars
                 continue
 
-            frag.matches_count += 1
+            if group != 'delimiters':
+                frag.matches_count += 1
             if frag.indices[1] == 0:
                 frag.indices = (start_char, total_chars)
             else:
@@ -302,11 +320,27 @@ class DateFinder:
 
             ## sanitize date string
             ## replace unhelpful blank space characters with single blank space
+
             match_str = re.sub(r'[\n\t\s\xa0]+', ' ', match_str)
+            match_str, indices = self.strip_string_entry(match_str, indices, self.STRIP_CHARS)
             match_str = match_str.strip(self.STRIP_CHARS)
 
             ## Save sanitized source string
             yield match_str, indices, captures
+
+    @classmethod
+    def strip_string_entry(cls,
+                           text: str,
+                           text_coords: Tuple[int, int],
+                           strip_chars: Optional[str] = None) -> Tuple[str, Tuple[int, int]]:
+        ln = len(text)
+        text = text.rstrip(strip_chars)
+        text_coords = (text_coords[0], text_coords[1] - ln + len(text),)
+
+        ln = len(text)
+        text = text.lstrip(strip_chars)
+        text_coords = (text_coords[0] + ln - len(text), text_coords[1],)
+        return text, text_coords
 
     @staticmethod
     def split_date_range(text: str) -> List[Tuple[str, Tuple[int, int]]]:
@@ -366,7 +400,6 @@ class DateFinder:
                 was_raised_error = True
         else:
             try:
-                print(date_string, self.base_date, type(locale))
                 as_dt = dateparser.parse(date_string,
                                          settings={'RELATIVE_BASE': self.base_date},
                                          locales=[locale.get_locale()])

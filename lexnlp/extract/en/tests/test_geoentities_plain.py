@@ -1,11 +1,13 @@
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
 
+
 import os
+from inspect import cleandoc
 from unittest import TestCase
 
 from lexnlp.extract.en.dict_entities import DictionaryEntry
@@ -29,18 +31,18 @@ class TestGeoentitiesPlain(TestCase):
     def test_multiline_address(self):
         text = """
         Sincerely,
-        DUKE REALTY CORPORATION
-        Ana M. Hernandez
+        DUCK REALTY CORPORATION
+        Ono M. Hernandez
         Property Administrator
         
-        2400 North Commerce  Parkway
+        2400 North Commerce  Forkway
         Suite 405
-        Weston, FL 33326
-        Main: 954-453-5660
-        P: 954-453-5265
-        F: 954.453.5695 
-        ana.hernandez@dukerealty.com 
-        www.dukerealty.com
+        Weston, FL 55582
+        Main: 954-453-4091
+        P: 954-453-4091
+        F: 954.453.4092 
+        ono.hernandez@dukerealty.com 
+        www.duckrealty.com
         
         
         Cc: File
@@ -100,3 +102,29 @@ non-letter symbols should be treated correctly (MS).'''
         self.assertEqual(1, len(ants))
         fragment = text[ants[0].coords[0]: ants[0].coords[1]]
         self.assertEqual('Michigan', fragment)
+
+    def test_chinese_republics(self):
+        text: str = cleandoc("""
+            In accordance with the Law of the People's Republic of China on Joint
+            Ventures Using Chinese and Foreign Investment (the ""Joint Venture Law"") and
+            other relevant Chinese laws and regulations, ABC Group Limited Liability
+            Company and XYZ Technology Inc., in accordance with the principle of
+            equality and mutual benefit and through friendly consultations, agree to jointly
+            invest to establish a joint venture enterprise in Baoding City, Hebei Province
+            of the People's Republic of China.
+        """)
+        annotations = list(get_geoentity_annotations(text, GEO_CONFIG))
+        self.assertEqual(3, len(annotations))
+        self.assertEqual('China', annotations[0].name)
+        self.assertEqual('China', annotations[2].name)
+
+    def test_abbreviated_country_name(self):
+        text: str = cleandoc("""
+            ABC Inc. has been working with the PRC since 1986. In 2021, ABC approved
+            the construction of a new factory in CHN with the overarching goal
+            of increasing manufacturing capabilities by 2030.
+        """)
+        annotations = list(get_geoentity_annotations(text, GEO_CONFIG))
+        self.assertEqual(2, len(annotations))
+        self.assertEqual('China', annotations[0].name)
+        self.assertEqual('China', annotations[1].name)

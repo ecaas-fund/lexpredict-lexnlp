@@ -1,9 +1,10 @@
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
+
 
 # -*- coding: utf-8 -*-
 
@@ -13,6 +14,8 @@ from lexnlp.extract.all_locales.languages import LocaleContextManager
 
 
 # https://en.wikipedia.org/wiki/Decimal_separator
+
+
 DELIMITERS: FrozenSet = frozenset((
     '\u0020',  # U+0020   SPACE (HTML &#32;)
     '\u0027',  # U+0027 ' APOSTROPHE (HTML &#39; · &apos;)
@@ -181,12 +184,22 @@ def infer_delimiters(
         }
 
     if len_delimiters == 2:
+        decimal_delimiter = ''
+        group_delimiter = ''
+
         # `text` is a floating point number greater than one
         for delimiter in delimiters:
             if delimiter == blocks[-1].delimiter:
                 decimal_delimiter = delimiter
             else:
                 group_delimiter = delimiter
+
+        if decimal_delimiter and group_delimiter:
+            return {
+                'decimal_delimiter': decimal_delimiter,
+                'group_delimiter': group_delimiter
+            }
+
         if not check_block_grouping(blocks, decimal_delimiter, grouping):
             return None
 
@@ -199,6 +212,12 @@ def infer_delimiters(
     if len(blocks) == 1:
         block: DelimitedBlock = blocks[0]
         delimiter: str = delimiters.pop()
+
+        if block.length == 3 and block.delimiter != decimal_delimiter:
+            return {
+                'decimal_delimiter': None,
+                'group_delimiter': block.delimiter
+            }
 
         if block.length == grouping[0]:
             # `text` is an integer

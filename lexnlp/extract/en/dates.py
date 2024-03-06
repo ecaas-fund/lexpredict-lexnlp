@@ -5,10 +5,11 @@ This module implements date extraction functionality in English.
 
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
-__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.0.0/LICENSE"
-__version__ = "2.0.0"
+__license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
+__version__ = "2.3.0"
 __maintainer__ = "LexPredict, LLC"
 __email__ = "support@contraxsuite.com"
+
 
 # pylint: disable=bare-except
 
@@ -20,7 +21,6 @@ import random
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 # Third-party packages
-import pandas as pd
 import regex as re
 
 # LexNLP imports
@@ -33,6 +33,8 @@ from lexnlp.extract.en.date_model import MODEL_DATE, MODULE_PATH, DATE_MODEL_CHA
 
 
 # Distance in characters to use to merge two date strings
+
+
 DATE_MERGE_WINDOW = 10
 
 # Maximum date length
@@ -55,45 +57,6 @@ EN_MONTHS = [['january', 'jan'], ['february', 'feb', 'febr'], ['march', 'mar'],
              ['april', 'apr'], ['may'], ['june', 'jun'],
              ['july', 'jul'], ['august', 'aug'], ['september', 'sep', 'sept'],
              ['october', 'oct'], ['november', 'nov'], ['december', 'dec']]
-
-
-class FeatureTemplate:
-    # The class stores date features DataFrame for not to
-    # recreate this dataframe each time we're parsing a date.
-    # "keys" variable is the features "dimension" vector
-    # DateFeaturesDataframeBuilder uses this class
-
-    def __init__(self, df: pd.DataFrame = None, keys: List[str] = None):
-        self.df = df
-        self.keys = keys
-
-
-class DateFeaturesDataframeBuilder:
-    # the class build a pd.DataFrame out of dictionary like
-    # { "char_a": 0.0050, ... "char_ac": 0.0, ... }
-    # The class does it faster than just pandas ctor because
-    # the DataFrame doesn't get recreated each time
-
-    # features count: empty dataframe with columns serialized
-    # there may be different feature sets: e.g. whether we include N-grams or not
-    feature_df_by_key_count = {}  # type: Dict[int, FeatureTemplate]
-
-    @classmethod
-    def build_feature_df(cls, dic: Dict[str, float]) -> pd.DataFrame:
-        features_count = len(dic)
-        template = cls.feature_df_by_key_count.get(features_count)
-        if not template:
-            keys = list(dic)
-            df = pd.DataFrame(columns=keys, dtype=float)
-            template = FeatureTemplate(df, keys)
-            cls.feature_df_by_key_count[features_count] = template
-
-        values = []
-        for k in template.keys:
-            values.append(dic[k])
-        df = template.df
-        df.loc[0] = values
-        return df
 
 
 def get_month_by_name():
@@ -121,6 +84,10 @@ def get_raw_dates(text, strict=False, base_date=None,
     :param locale: locale object
     :return:
     """
+    if isinstance(locale, str):
+        locale = Locale(locale)
+    elif locale is None:
+        locale = Locale('')
     # Setup base date
     if not base_date:
         base_date = datetime.datetime.now().replace(
@@ -421,19 +388,24 @@ def get_date_annotations(text: str,
 
     # Get raw dates
     strict = strict if strict is not None else False
-    raw_date_results = get_raw_date_list(
+    raw_date_results = get_raw_dates(
         text, strict=strict, base_date=base_date, return_source=True, locale=Locale(locale))
 
     for raw_date in raw_date_results:
-        features_dict = get_date_features(text, raw_date[1][0], raw_date[1][1], characters=DATE_MODEL_CHARS)
-        row_df = DateFeaturesDataframeBuilder.build_feature_df(features_dict)
-        # row_df = pd.DataFrame([get_date_features(text, raw_date[1][0], raw_date[1][1])])
-        date_score = MODEL_DATE.predict_proba(row_df.loc[:, MODEL_DATE.columns])
+        feature_row = get_date_features(text, raw_date[1][0], raw_date[1][1], characters=DATE_MODEL_CHARS)
+        feature_list = len(feature_row) * [0.0]
+        for i, col in enumerate(MODEL_DATE.columns):
+            feature_list[i] = feature_row[col]
+        date_score = MODEL_DATE.predict_proba([feature_list])
         if date_score[0, 1] >= threshold:
-            ant = DateAnnotation(coords=raw_date[1],
-                                 date=raw_date[0],
-                                 score=date_score[0, 1])
-            yield ant
+            date, coordinates = raw_date
+            annotation = DateAnnotation(
+                coords=coordinates,
+                text=text[slice(*coordinates)],
+                date=date,
+                score=date_score[0, 1]
+            )
+            yield annotation
 
 
 def train_default_model(save=True):
