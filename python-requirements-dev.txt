@@ -2,7 +2,7 @@ beautifulsoup4==4.11.1
 cloudpickle==2.1.0
 dateparser==1.1.1
 docutils==0.17.1
-gensim==4.1.2
+gensim>=4.1.2
 joblib==1.1.0
 elasticsearch==7.8.0
 ipdb==0.13.9
@@ -20,10 +20,10 @@ pytest-pep8==1.0.6
 pytest-pylint==0.18.0
 pytest-xdist==1.33.1
 python-dateutil==2.8.2
-regex==2022.3.2
+regex>=2020.7.14
 reporters-db==3.2.18
 requests==2.27.1
-scikit-learn==0.23.1
+scikit-learn>=0.23.1
 scipy==1.8.1
 sphinx==5.0.1
 sphinx-rtd-theme==1.0.0
