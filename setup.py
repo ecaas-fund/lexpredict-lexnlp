@@ -107,7 +107,7 @@ setup(
         'regex>=2020.7.14',
         'reporters-db==3.2.32',
         'requests==2.28.1',
-        'scikit-learn==0.24',
+        'scikit-learn>=0.24',
         'scipy==1.9.3',
         'tqdm==4.64.1',
         'Unidecode==1.3.6',
