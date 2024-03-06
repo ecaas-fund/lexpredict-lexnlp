@@ -93,7 +93,7 @@ setup(
         'cloudpickle==2.2.0',
         'dateparser==1.1.3',
         'elasticsearch==8.5.0',
-        'gensim==4.1.2',
+        'gensim>=4.1.2',
         'importlib-metadata==5.0.0',
         'joblib==1.2.0',
         'lxml==4.9.1',
