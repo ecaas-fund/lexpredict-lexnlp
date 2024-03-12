@@ -20,7 +20,7 @@ pytest-pep8==1.0.6
 pytest-pylint==0.18.0
 pytest-xdist==1.33.1
 python-dateutil==2.8.2
-regex>=2020.7.14
+regex==2023.12.25
 reporters-db==3.2.18
 requests==2.27.1
 scikit-learn>=0.23.1

@@ -104,7 +104,7 @@ setup(
         'psutil==5.9.4',
         'pycountry==22.3.5',
         'python-dateutil==2.8.2',
-        'regex>=2020.7.14',
+        'regex==2023.12.25',
         'reporters-db==3.2.32',
         'requests==2.28.1',
         'scikit-learn>=1.3.2',
