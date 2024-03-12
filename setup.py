@@ -91,7 +91,7 @@ setup(
     install_requires=[
         'beautifulsoup4==4.11.1',
         'cloudpickle==2.2.0',
-        'dateparser==1.1.3',
+        'dateparser==1.2.0',
         'elasticsearch==8.5.0',
         'gensim==4.3.2',
         'importlib-metadata==5.0.0',

@@ -2,7 +2,7 @@ beautifulsoup4==4.11.1
 cloudpickle==2.1.0
 coverage==6.4.1
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.1/en_core_web_sm-2.3.1.tar.gz
-dateparser==1.1.1
+dateparser==1.2.0
 docutils==0.17.1
 elasticsearch==7.8.0
 gensim==4.3.2
