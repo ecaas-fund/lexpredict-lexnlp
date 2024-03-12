@@ -97,7 +97,7 @@ setup(
         'importlib-metadata==5.0.0',
         'joblib==1.2.0',
         'lxml==4.9.1',
-        'nltk==3.7',
+        'nltk>=3.7',
         'num2words==0.5.12',
         'numpy==1.23.4',
         'pandas==1.5.1',
