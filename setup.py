@@ -99,7 +99,7 @@ setup(
         'lxml==4.9.1',
         'nltk>=3.7',
         'num2words==0.5.12',
-        'numpy==1.23.4',
+        'numpy==1.24.4',
         'pandas==1.5.1',
         'psutil==5.9.4',
         'pycountry==22.3.5',
